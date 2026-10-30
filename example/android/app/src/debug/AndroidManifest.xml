@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The Flutter tool talks to the running app in debug builds. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug builds may send events to a local OneTrace over http (http://10.0.2.2:8180 from the emulator). -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

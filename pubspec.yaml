@@ -1,0 +1,34 @@
+name: onetrace_flutter
+description: "OneTrace.pro customer data platform for Flutter apps: events, screens, identities, mobile push and in-app messages through the native OneTrace SDKs for Android and iOS."
+version: 1.0.0
+homepage: https://onetrace.pro
+repository: https://github.com/OneTracePro/onetrace-flutter
+issue_tracker: https://github.com/OneTracePro/onetrace-flutter/issues
+documentation: https://onetrace.pro/en/docs/api
+topics:
+  - analytics
+  - cdp
+  - push-notifications
+  - in-app-messaging
+
+environment:
+  sdk: ^3.8.0
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: pro.onetrace.flutter
+        pluginClass: OneTracePlugin
+      ios:
+        pluginClass: OneTraceFlutterPlugin
