@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-10-30
+## 1.0.0 — 2026-10-31
 
 - Events, screens, identify, alias and reset through the native OneTrace SDKs for Android and iOS; dates in properties become ISO 8601 strings.
 - `OneTraceNavigatorObserver`: a screen for every named page route.

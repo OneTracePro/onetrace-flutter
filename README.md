@@ -15,7 +15,9 @@ The plugin is a thin layer over the native SDKs, [OneTrace for Android](https://
 ```yaml
 dependencies:
   onetrace_flutter:
-    git: https://github.com/OneTracePro/onetrace-flutter.git
+    git:
+      url: https://github.com/OneTracePro/onetrace-flutter.git
+      ref: v1.0.0
 ```
 
 ## Quick start
