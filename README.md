@@ -81,6 +81,8 @@ Messages of the **In-app messages** channel (journeys and campaigns) are fetched
 
 [`example/`](example) is a small shop: products, sign-in and sign-out, add to cart, in-app messages.
 
+Clone the repository into a directory named `onetrace_flutter` to build the example for iOS — Xcode rejects the plugin's Swift package otherwise ([flutter/flutter#186881](https://github.com/flutter/flutter/issues/186881)); apps that depend on the plugin are not affected.
+
 ```bash
 cd example
 flutter run --dart-define=ONETRACE_WRITE_KEY=cdp_wk_… --dart-define=ONETRACE_HOST=https://crm.example.com

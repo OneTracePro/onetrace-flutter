@@ -44,10 +44,14 @@ jobs:
     name: iOS example build (Swift Package Manager)
     runs-on: macos-latest
     steps:
+      # The checkout directory must be named like the Dart package: Flutter names the plugin's Swift package
+      # symlink after it, and Xcode rejects an identity other than the package directory (flutter/flutter#186881).
       - uses: actions/checkout@v4
+        with:
+          path: onetrace_flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
       - name: Build the example for the simulator with the native SDK as a Swift package
-        working-directory: example
+        working-directory: onetrace_flutter/example
         run: flutter build ios --simulator --debug
