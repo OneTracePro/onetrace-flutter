@@ -2,7 +2,7 @@ group = "pro.onetrace.flutter"
 version = "1.0.0"
 
 /** The native OneTrace SDK for Android (JitPack: a release tag or a commit). */
-val oneTraceAndroid = "2d5c53e"
+val oneTraceAndroid = "1.0.0"
 
 buildscript {
     val kotlinVersion = "2.4.0"
