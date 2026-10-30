@@ -38,7 +38,7 @@ void main() {
       'trackLifecycle': true,
       'openPushLinks': true,
       'debug': true,
-      'wrapper': 'onetrace-flutter',
+      'wrapper': 'flutter',
       'wrapperVersion': OneTrace.version,
     });
   });

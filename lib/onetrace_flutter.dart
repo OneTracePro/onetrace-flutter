@@ -69,7 +69,7 @@ abstract final class OneTrace {
   static Future<void> init(OneTraceConfig config) {
     WidgetsFlutterBinding.ensureInitialized();
 
-    return channel.invokeMethod('init', {...config.toMap(), 'wrapper': 'onetrace-flutter', 'wrapperVersion': version});
+    return channel.invokeMethod('init', {...config.toMap(), 'wrapper': 'flutter', 'wrapperVersion': version});
   }
 
   /// Your own event, for example `track('order_completed', {'order_id': '1001', 'amount': 1250.5})`.
