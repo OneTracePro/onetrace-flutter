@@ -90,13 +90,18 @@ void main() {
 
   test('sends identities, push tokens and reads ids', () async {
     await OneTrace.identify('u-42', {'email': 'anna@example.com'});
+    await OneTrace.identify('u-42', {}, 'a1b2');
+    await OneTrace.alias('u-43', 'c3d4');
     await OneTrace.setPushToken('apns-token', provider: PushProvider.apns);
 
     expect(calls.map((call) => call.arguments), [
       {
         'userId': 'u-42',
         'traits': {'email': 'anna@example.com'},
+        'userHash': null,
       },
+      {'userId': 'u-42', 'traits': {}, 'userHash': 'a1b2'},
+      {'userId': 'u-43', 'userHash': 'c3d4'},
       {'token': 'apns-token', 'provider': 'apns'},
     ]);
     expect(await OneTrace.anonymousId, 'anon-1');

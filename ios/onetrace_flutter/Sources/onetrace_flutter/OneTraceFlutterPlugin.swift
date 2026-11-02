@@ -30,9 +30,9 @@ public class OneTraceFlutterPlugin: NSObject, FlutterPlugin {
         case "screen":
             OneTrace.screen(args.string("name"), args.values("properties"))
         case "identify":
-            OneTrace.identify(args["userId"] as? String, traits: args.values("traits"))
+            OneTrace.identify(args["userId"] as? String, traits: args.values("traits"), userHash: args["userHash"] as? String)
         case "alias":
-            OneTrace.alias(args.string("userId"))
+            OneTrace.alias(args.string("userId"), userHash: args["userHash"] as? String)
         case "reset":
             OneTrace.reset()
         case "flush":

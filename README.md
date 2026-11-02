@@ -52,6 +52,29 @@ The SDK sends `app_installed`, `app_updated`, `app_opened` and `app_backgrounded
 
 `OneTraceNavigatorObserver` sends a screen with the route name (`RouteSettings.name`) for every page route; dialogs and bottom sheets are not screens. Pass `screenName` to name routes yourself, or call `OneTrace.screen('Cart')`.
 
+## Signed user ids
+
+The write key ships inside the app, so anyone could call `identify` with someone else's user id and receive that customer's in-app messages and push. Sign the user id on your server to prove it belongs to the signed-in user. When the project requires the signature (**Website → Connection → Server**), a user id without a valid one is ignored: events stay with the anonymous id, and the installation is not registered for that user.
+
+1. Create the signing key on the **Website → Connection → Server** tab and keep it on your server only — never put it into the app.
+2. After sign-in, your server returns the signature with the session: HMAC-SHA256 of the user id with the signing key, in hex.
+
+   ```php
+   $userHash = hash_hmac('sha256', $userId, getenv('CDP_IDENTITY_KEY'));
+   ```
+
+   ```js
+   const userHash = crypto.createHmac('sha256', process.env.CDP_IDENTITY_KEY).update(userId).digest('hex');
+   ```
+
+3. Pass it to `identify` (and to `alias`):
+
+   ```dart
+   OneTrace.identify(session.userId, {'email': session.email}, session.userHash);
+   ```
+
+The SDK keeps the signature with the user id and sends it as `userHash` with every event and the installation registration. A later `identify` of the same user without a signature keeps the stored one; another user id or `reset()` clears it. After the key is changed, the previous one is accepted for another 24 hours: return signatures with the new key from your server before then.
+
 ## Push notifications
 
 The plugin does not receive push messages itself — use [firebase_messaging](https://pub.dev/packages/firebase_messaging) (or your own setup) and pass the token and the messages on:

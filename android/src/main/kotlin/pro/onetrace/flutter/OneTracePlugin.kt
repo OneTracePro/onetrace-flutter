@@ -37,8 +37,8 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
             "init" -> init(call)
             "track" -> OneTrace.track(call.string("event"), call.map("properties"))
             "screen" -> OneTrace.screen(call.string("name"), call.map("properties"))
-            "identify" -> OneTrace.identify(call.argument<String>("userId"), call.map("traits"))
-            "alias" -> OneTrace.alias(call.string("userId"))
+            "identify" -> OneTrace.identify(call.argument<String>("userId"), call.map("traits"), call.argument<String>("userHash"))
+            "alias" -> OneTrace.alias(call.string("userId"), call.argument<String>("userHash"))
             "reset" -> OneTrace.reset()
             "flush" -> OneTrace.flush()
             "setPushToken" -> OneTrace.setPushToken(

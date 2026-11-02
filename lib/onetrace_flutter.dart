@@ -81,11 +81,17 @@ abstract final class OneTrace {
       channel.invokeMethod('screen', {'name': name, 'properties': _values(properties)});
 
   /// The user signed in or updated their data. Pass null as the user id to update traits of the current visitor.
-  static Future<void> identify(String? userId, [Map<String, Object?> traits = const {}]) =>
-      channel.invokeMethod('identify', {'userId': userId, 'traits': _values(traits)});
+  ///
+  /// [userHash] is the signature of the user id: HMAC-SHA256 of [userId] with the project's signing key, in hex. Your
+  /// server computes it after sign-in and returns it to the app; never put the signing key into the app. When the
+  /// project requires the signature, a user id without it is ignored. The SDK keeps it with the user id and sends it
+  /// with every event and the installation; a later `identify` of the same user without it keeps the stored one.
+  static Future<void> identify(String? userId, [Map<String, Object?> traits = const {}, String? userHash]) =>
+      channel.invokeMethod('identify', {'userId': userId, 'traits': _values(traits), 'userHash': userHash});
 
-  /// Links the current anonymous visitor to a new user id.
-  static Future<void> alias(String userId) => channel.invokeMethod('alias', {'userId': userId});
+  /// Links the current anonymous visitor to a new user id; [userHash] is its signature, as in [identify].
+  static Future<void> alias(String userId, [String? userHash]) =>
+      channel.invokeMethod('alias', {'userId': userId, 'userHash': userHash});
 
   /// The user signed out: a new anonymous id, and the installation leaves the previous user's profile.
   static Future<void> reset() => channel.invokeMethod('reset');
