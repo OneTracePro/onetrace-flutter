@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-11-02
 
 - Signed user ids: `identify(userId, traits, userHash)` and `alias(userId, userHash)` pass the signature from your server to the native SDKs, which send it with every event and the installation registration. Required when the project turns on the user id signature.
 - Native SDKs 1.1.0.

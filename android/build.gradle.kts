@@ -1,5 +1,5 @@
 group = "pro.onetrace.flutter"
-version = "1.0.0"
+version = "1.1.0"
 
 /** The native OneTrace SDK for Android (JitPack: a release tag or a commit). */
 val oneTraceAndroid = "1.1.0"

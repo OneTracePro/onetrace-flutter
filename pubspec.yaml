@@ -1,6 +1,6 @@
 name: onetrace_flutter
 description: "OneTrace.pro customer data platform for Flutter apps: events, screens, identities, mobile push and in-app messages through the native OneTrace SDKs for Android and iOS."
-version: 1.0.0
+version: 1.1.0
 homepage: https://onetrace.pro
 repository: https://github.com/OneTracePro/onetrace-flutter
 issue_tracker: https://github.com/OneTracePro/onetrace-flutter/issues

@@ -61,7 +61,7 @@ enum PushProvider { fcm, apns }
 /// The OneTrace SDK. Call [init] once, as early as possible (before `runApp`); every other call does nothing before it.
 abstract final class OneTrace {
   /// Version of this package, reported with every event.
-  static const String version = '1.0.0';
+  static const String version = '1.1.0';
 
   @visibleForTesting
   static const MethodChannel channel = MethodChannel('pro.onetrace/sdk');

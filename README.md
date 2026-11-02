@@ -17,7 +17,7 @@ dependencies:
   onetrace_flutter:
     git:
       url: https://github.com/OneTracePro/onetrace-flutter.git
-      ref: v1.0.0
+      ref: v1.1.0
 ```
 
 ## Quick start
