@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 — 2026-11-09
+
+- Message feed: `fetchFeed()` and `feedCards` return `OneTraceFeedCard`s with every field (token, layout, title, body, image and button, pinned, read, created and expiry dates, `opensOnTap`); `feedUnread` — the unread count as a stream for a badge (listening starts the native observer, cancelling stops it), `feedUnreadCount`; `feedCardShown`, `feedCardClicked` (opens the link like push links) and `feedCardDismissed` reports for your own feed UI.
+- `openFeed({language})` opens the ready-made feed screen of the native SDK: classic, captioned and banner cards, pinned first, remove button, pull to refresh, labels in 10 languages, light and dark.
+- Native SDKs 1.2.0.
+
 ## 1.1.0 — 2026-11-02
 
 - Signed user ids: `identify(userId, traits, userHash)` and `alias(userId, userHash)` pass the signature from your server to the native SDKs, which send it with every event and the installation registration. Required when the project turns on the user id signature.

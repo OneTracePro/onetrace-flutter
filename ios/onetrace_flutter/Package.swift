@@ -12,7 +12,7 @@ let package = Package(
     dependencies: [
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
         // The native OneTrace SDK for iOS.
-        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", from: "1.1.0"),
+        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", from: "1.2.0"),
     ],
     targets: [
         .target(

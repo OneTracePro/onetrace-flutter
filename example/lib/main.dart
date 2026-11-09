@@ -87,7 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('OneTrace demo shop')),
+      appBar: AppBar(
+        title: const Text('OneTrace demo shop'),
+        actions: [
+          // The message feed: the native screen, with the unread count as a badge.
+          StreamBuilder<int>(
+            stream: OneTrace.feedUnread,
+            builder: (context, unread) => IconButton(
+              tooltip: 'Updates',
+              onPressed: OneTrace.openFeed,
+              icon: Badge(
+                isLabelVisible: (unread.data ?? 0) > 0,
+                label: Text('${unread.data ?? 0}'),
+                child: const Icon(Icons.notifications_outlined),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
