@@ -20,6 +20,15 @@ dependencies:
       ref: v1.2.0
 ```
 
+## Native code before the release (stage 105)
+
+The features above (rich push, Remote Config, geofences) are in the `stage-105` branches of the native SDKs, which are not released yet:
+
+- Android: in `onetrace-android` (branch `stage-105`) run `./gradlew :onetrace:publishReleasePublicationToMavenLocal :onetrace-fcm:publishReleasePublicationToMavenLocal :onetrace-location:publishReleasePublicationToMavenLocal`; the plugin resolves `com.github.OneTracePro.onetrace-android:onetrace` and `onetrace-location` from `mavenLocal()` first. The plugin now depends on the `onetrace-location` module (Google Play services location).
+- iOS: `ios/onetrace_flutter/Package.swift` pins `onetrace-ios` to a commit of the `stage-105` branch (`revision:`); for local work replace it with `.package(path: "../../../onetrace-ios")`.
+
+After the native SDKs are released these lines switch back to the version.
+
 ## Quick start
 
 ```dart
@@ -97,6 +106,49 @@ if (initial != null) {
 A tap is reported once and its link (`cdp_url`, `myapp://…` or `https://…`) is opened — set `openPushLinks: false` to handle it yourself. On iOS without Firebase pass the APNs token: `OneTrace.setPushToken(token, provider: PushProvider.apns)`.
 
 In OneTrace add the **Mobile push** integration with your package name and bundle id: the Firebase service account for FCM and, for APNs tokens, the APNs key.
+
+### Rich push, buttons and the tapped button (stage 105, unreleased)
+
+Android: the native SDK draws OneTrace push (carousel, timer, buttons, snooze). Set `richPush: true` in `OneTraceConfig` and pass the data of every message to `OneTrace.handlePush(data)` from your background handler (it returns false for other messages); only then the installation reports `rich` and `silent` and the server sends data-only messages. Without the flag the server sends the plain notification, as before.
+
+```dart
+@pragma('vm:entry-point')
+Future<void> onBackgroundMessage(RemoteMessage message) => OneTrace.handlePush(message.data);
+
+await OneTrace.init(const OneTraceConfig(writeKey: '…', host: '…', richPush: true));
+FirebaseMessaging.onBackgroundMessage(onBackgroundMessage);
+```
+
+iOS draws rich push in a Notification Service Extension and Notification Content Extension of the native SDK (see its README); `richPush` and `handlePush` do nothing there. A tap on a button is passed with its id: `OneTrace.notificationOpened(message.data, actionId: id)`. The same tap passed twice (the native delegate and your code) is reported once.
+
+## Remote Config
+
+App settings of OneTrace (**Apps → Remote Config**), read from the device:
+
+```dart
+final theme = await OneTrace.remoteConfig.getString('theme', 'light');
+final enabled = await OneTrace.remoteConfig.getBool('new_checkout', false);   // also getInt, getDouble, getJson (a JSON string)
+await OneTrace.remoteConfig.fetch();                                            // fresh values now, true when fetched
+OneTrace.remoteConfig.changes.listen((keys) => reload(keys));                   // keys that changed after a fetch
+```
+
+`OneTraceConfig.remoteConfigMinFetchInterval` sets how often the SDK asks by itself (one hour by default).
+
+## Geofences
+
+Zones of **Apps → Geofences** produce `geofence_entered`, `geofence_dwelled` and `geofence_exited` events. The native SDK watches the nearest zones; the location permission is yours to ask for:
+
+```dart
+await OneTrace.requestLocationPermission();     // Android: call again after the answer for «Allow all the time»
+final status = await OneTrace.enableGeofences(); // GeofenceStatus.enabled, or the reason it is not
+await OneTrace.disableGeofences();
+```
+
+Android needs `ACCESS_FINE_LOCATION` (and `ACCESS_BACKGROUND_LOCATION`) in the app manifest; iOS needs the `NSLocationWhenInUseUsageDescription` and `NSLocationAlwaysAndWhenInUseUsageDescription` strings. Call `enableGeofences()` at app start too: iOS starts the app in the background for a zone event.
+
+## Live Activities (iOS)
+
+Not wrapped: they use ActivityKit types. Call `OneTrace.liveActivities` of the native iOS SDK directly from your Swift code in the app target (see the native SDK README).
 
 ## In-app messages
 

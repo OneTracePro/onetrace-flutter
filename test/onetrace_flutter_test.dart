@@ -35,6 +35,7 @@ void main() {
         'anonymousId' => 'anon-1',
         'fetchFeed' || 'feedCards' => feed,
         'feedUnreadCount' => 1,
+        'handlePush' => true,
         _ => null,
       };
     });
@@ -108,6 +109,137 @@ void main() {
     expect(calls.single.arguments, {
       'data': {'cdp_token': 'abc.def', 'cdp_url': 'shopapp://sale', 'badge': '2'},
     });
+  });
+
+  test('passes the rich push flag and the Remote Config interval to the native SDK only when they are set', () async {
+    await OneTrace.init(
+      const OneTraceConfig(
+        writeKey: 'cdp_wk_test',
+        host: 'https://crm.example.com',
+        richPush: true,
+        remoteConfigMinFetchInterval: Duration(minutes: 10),
+      ),
+    );
+
+    expect(calls.single.arguments['richPush'], isTrue);
+    expect(calls.single.arguments['remoteConfigMinFetchIntervalSeconds'], 600);
+
+    calls.clear();
+    await OneTrace.init(const OneTraceConfig(writeKey: 'cdp_wk_test', host: 'https://crm.example.com'));
+
+    expect((calls.single.arguments as Map).containsKey('richPush'), isFalse);
+    expect((calls.single.arguments as Map).containsKey('remoteConfigMinFetchIntervalSeconds'), isFalse);
+  });
+
+  test('passes the tapped button to the native SDK', () async {
+    await OneTrace.notificationOpened({'cdp_token': 'abc.def'}, actionId: 'snooze');
+
+    expect(calls.single.method, 'notificationOpened');
+    expect(calls.single.arguments, {
+      'data': {'cdp_token': 'abc.def'},
+      'actionId': 'snooze',
+    });
+  });
+
+  test('hands push data to the native SDK to draw and tells whether it was OneTrace push', () async {
+    expect(await OneTrace.handlePush({'title': 'Not ours'}), isFalse);
+    expect(calls, isEmpty);
+
+    expect(await OneTrace.handlePush({'cdp_token': 'abc.def', 'cdp_kind': 'carousel', 'n': 3}), isTrue);
+    expect(calls.single.method, 'handlePush');
+    expect(calls.single.arguments, {
+      'data': {'cdp_token': 'abc.def', 'cdp_kind': 'carousel', 'n': '3'},
+    });
+  });
+
+  test('Remote Config methods call the native ones with the same arguments', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(OneTrace.channel, (
+      call,
+    ) async {
+      calls.add(call);
+
+      return switch (call.method) {
+        'remoteConfigGetString' => 'blue',
+        'remoteConfigGetBool' => true,
+        'remoteConfigGetInt' => 7,
+        'remoteConfigGetDouble' => 1.5,
+        'remoteConfigGetJson' => '{"a":1}',
+        'remoteConfigFetch' => true,
+        _ => null,
+      };
+    });
+
+    expect(await OneTrace.remoteConfig.getString('theme', 'red'), 'blue');
+    expect(await OneTrace.remoteConfig.getBool('promo', false), isTrue);
+    expect(await OneTrace.remoteConfig.getInt('limit', 1), 7);
+    expect(await OneTrace.remoteConfig.getDouble('ratio', 0.5), 1.5);
+    expect(await OneTrace.remoteConfig.getJson('menu', null), '{"a":1}');
+    expect(await OneTrace.remoteConfig.fetch(), isTrue);
+
+    expect(
+      [for (final call in calls) call.method],
+      [
+        'remoteConfigGetString',
+        'remoteConfigGetBool',
+        'remoteConfigGetInt',
+        'remoteConfigGetDouble',
+        'remoteConfigGetJson',
+        'remoteConfigFetch',
+      ],
+    );
+    expect(calls[0].arguments, {'key': 'theme', 'default': 'red'});
+    expect(calls[1].arguments, {'key': 'promo', 'default': false});
+    expect(calls[2].arguments, {'key': 'limit', 'default': 1});
+    expect(calls[3].arguments, {'key': 'ratio', 'default': 0.5});
+    expect(calls[4].arguments, {'key': 'menu', 'default': null});
+  });
+
+  test('the Remote Config change stream starts the native listener and cancelling stops it', () async {
+    final events = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockStreamHandler(
+      OneTrace.remoteConfigChannel,
+      MockStreamHandler.inline(
+        onListen: (arguments, sink) {
+          events.add('listen');
+          sink.success(['theme', 'promo']);
+        },
+        onCancel: (arguments) => events.add('cancel'),
+      ),
+    );
+
+    final changes = <Set<String>>[];
+    final subscription = OneTrace.remoteConfig.changes.listen(changes.add);
+    await pumpEventQueue();
+    expect(changes, [
+      {'theme', 'promo'},
+    ]);
+
+    await subscription.cancel();
+    await pumpEventQueue();
+    expect(events, ['listen', 'cancel']);
+  });
+
+  test('geofence methods call the native ones and map the status', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(OneTrace.channel, (
+      call,
+    ) async {
+      calls.add(call);
+
+      return switch (call.method) {
+        'enableGeofences' => 'backgroundPermissionMissing',
+        'requestLocationPermission' => true,
+        _ => null,
+      };
+    });
+
+    expect(await OneTrace.enableGeofences(), GeofenceStatus.backgroundPermissionMissing);
+    expect(await OneTrace.requestLocationPermission(), isTrue);
+    await OneTrace.disableGeofences();
+
+    expect(
+      [for (final call in calls) call.method],
+      ['enableGeofences', 'requestLocationPermission', 'disableGeofences'],
+    );
   });
 
   test('sends identities, push tokens and reads ids', () async {

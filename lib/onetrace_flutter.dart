@@ -17,6 +17,8 @@ class OneTraceConfig {
     this.trackLifecycle = true,
     this.openPushLinks = true,
     this.debug = false,
+    this.richPush = false,
+    this.remoteConfigMinFetchInterval,
   });
 
   /// The project write key (`cdp_wk_…`) from the OneTrace admin panel.
@@ -43,6 +45,15 @@ class OneTraceConfig {
   /// Log what the SDK does (Logcat, Xcode console).
   final bool debug;
 
+  /// Android: your app hands OneTrace push data to [OneTrace.handlePush] (carousel, timer, buttons, snooze); the
+  /// installation then reports `rich` and `silent` and the server sends data-only messages. Leave it off without
+  /// that handling: the server then sends the plain notification. Ignored on iOS (a Notification Service Extension
+  /// draws rich push there).
+  final bool richPush;
+
+  /// Remote Config is asked for at most this often; null keeps the native default (one hour).
+  final Duration? remoteConfigMinFetchInterval;
+
   Map<String, Object?> toMap() => {
     'writeKey': writeKey,
     'host': host,
@@ -52,6 +63,9 @@ class OneTraceConfig {
     'trackLifecycle': trackLifecycle,
     'openPushLinks': openPushLinks,
     'debug': debug,
+    if (richPush) 'richPush': true,
+    if (remoteConfigMinFetchInterval != null)
+      'remoteConfigMinFetchIntervalSeconds': remoteConfigMinFetchInterval!.inSeconds,
   };
 }
 
@@ -59,6 +73,66 @@ class OneTraceConfig {
 enum PushProvider { fcm, apns }
 
 /// How a feed card is drawn.
+/// The result of [OneTrace.enableGeofences]: anything but [enabled] is the reason the zones are not watched.
+enum GeofenceStatus {
+  /// The zones are watched; the list loads in the background.
+  enabled,
+
+  /// Android: no precise location permission.
+  locationPermissionMissing,
+
+  /// Android 10+: no «Allow all the time».
+  backgroundPermissionMissing,
+
+  /// Android: Google Play services are missing or outdated.
+  playServicesUnavailable,
+
+  /// Android: `init()` was not called yet.
+  notInitialized,
+
+  /// iOS: no «Always» location permission.
+  needsAlwaysPermission,
+
+  /// iOS: the device cannot watch regions.
+  unavailable,
+
+  /// iOS: `init()` was not called yet.
+  notSetUp,
+}
+
+/// The app settings of OneTrace (**Apps → Remote Config**): every call goes to the native SDK, which keeps the values
+/// on the device.
+final class OneTraceRemoteConfig {
+  const OneTraceRemoteConfig._();
+
+  static const MethodChannel _channel = OneTrace.channel;
+
+  Future<String?> getString(String key, String? defaultValue) =>
+      _channel.invokeMethod<String>('remoteConfigGetString', {'key': key, 'default': defaultValue});
+
+  Future<bool> getBool(String key, bool defaultValue) async =>
+      await _channel.invokeMethod<bool>('remoteConfigGetBool', {'key': key, 'default': defaultValue}) ?? defaultValue;
+
+  Future<int> getInt(String key, int defaultValue) async =>
+      await _channel.invokeMethod<int>('remoteConfigGetInt', {'key': key, 'default': defaultValue}) ?? defaultValue;
+
+  Future<double> getDouble(String key, double defaultValue) async =>
+      await _channel.invokeMethod<double>('remoteConfigGetDouble', {'key': key, 'default': defaultValue}) ??
+      defaultValue;
+
+  /// A JSON value (object or array) as a string for `jsonDecode`.
+  Future<String?> getJson(String key, String? defaultValue) =>
+      _channel.invokeMethod<String>('remoteConfigGetJson', {'key': key, 'default': defaultValue});
+
+  /// Asks the server for fresh values now; true when they were fetched.
+  Future<bool> fetch() async => await _channel.invokeMethod<bool>('remoteConfigFetch') ?? false;
+
+  /// The keys whose values changed after a fetch. Listening adds the native listener, cancelling removes it.
+  Stream<Set<String>> get changes => OneTrace._remoteConfigChanges ??= OneTrace.remoteConfigChannel
+      .receiveBroadcastStream()
+      .map((keys) => {for (final key in keys as List<Object?>) key.toString()});
+}
+
 enum FeedCardLayout {
   /// The image on the left of the text.
   classic,
@@ -155,7 +229,14 @@ abstract final class OneTrace {
   @visibleForTesting
   static const EventChannel feedUnreadChannel = EventChannel('pro.onetrace/feed_unread');
 
+  @visibleForTesting
+  static const EventChannel remoteConfigChannel = EventChannel('pro.onetrace/remote_config');
+
+  /// Remote Config values, `fetch()` and the changes stream.
+  static const OneTraceRemoteConfig remoteConfig = OneTraceRemoteConfig._();
+
   static Stream<int>? _feedUnread;
+  static Stream<Set<String>>? _remoteConfigChanges;
 
   static Future<void> init(OneTraceConfig config) {
     WidgetsFlutterBinding.ensureInitialized();
@@ -209,15 +290,44 @@ abstract final class OneTrace {
 
   /// A OneTrace notification was tapped, for example in `FirebaseMessaging.onMessageOpenedApp`: the open is reported
   /// once and its link opened. Returns false when the data is not from OneTrace.
-  static Future<bool> notificationOpened(Map<String, Object?> data) async {
+  /// A tap on a notification or on one of its buttons; [actionId] is the id of the tapped button. Passing the same
+  /// tap twice (the native delegate and your code) reports one open.
+  static Future<bool> notificationOpened(Map<String, Object?> data, {String? actionId}) async {
     if (!isOneTraceNotification(data)) {
       return false;
     }
 
-    await channel.invokeMethod('notificationOpened', {'data': _strings(data)});
+    await channel.invokeMethod('notificationOpened', {'data': _strings(data), 'actionId': ?actionId});
 
     return true;
   }
+
+  /// Android: the native SDK draws OneTrace push data (carousel, timer, buttons, snooze); call it from your
+  /// `FirebaseMessagingService` or background handler and set [OneTraceConfig.richPush]. True when the data is
+  /// OneTrace push. Nothing is drawn on iOS.
+  static Future<bool> handlePush(Map<String, Object?> data) async {
+    if (!isOneTraceNotification(data)) {
+      return false;
+    }
+
+    return await channel.invokeMethod<bool>('handlePush', {'data': _strings(data)}) ?? false;
+  }
+
+  /// Starts watching the project's geofences (**Apps → Geofences**); the location permission is yours to ask for,
+  /// for example with [requestLocationPermission].
+  static Future<GeofenceStatus> enableGeofences() async {
+    final status = await channel.invokeMethod<String>('enableGeofences');
+
+    return GeofenceStatus.values.asNameMap()[status] ?? GeofenceStatus.unavailable;
+  }
+
+  /// Stops watching the zones.
+  static Future<void> disableGeofences() => channel.invokeMethod('disableGeofences');
+
+  /// Asks for the next missing location permission. Android: true when a prompt was shown; call it again after the
+  /// answer for «Allow all the time». iOS: starts both steps («While Using», then «Always») and returns true.
+  static Future<bool> requestLocationPermission() async =>
+      await channel.invokeMethod<bool>('requestLocationPermission') ?? false;
 
   /// Holds in-app messages back while true, for example during checkout; they are shown after it is set back to false
   /// and the app opens again or tracks their trigger event.

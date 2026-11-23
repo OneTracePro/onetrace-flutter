@@ -1,15 +1,19 @@
 import Flutter
 import OneTrace
+import OneTraceLocation
 import UIKit
 
 /// The `pro.onetrace/sdk` channel over the native OneTrace SDK, and the `pro.onetrace/feed_unread` event channel with the
-/// unread count of the message feed while Dart listens to it.
+/// unread count of the message feed and `pro.onetrace/remote_config` with the changed Remote Config keys while Dart
+/// listens to them.
 public class OneTraceFlutterPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "pro.onetrace/sdk", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(OneTraceFlutterPlugin(), channel: channel)
         FlutterEventChannel(name: "pro.onetrace/feed_unread", binaryMessenger: registrar.messenger())
             .setStreamHandler(FeedUnreadStream())
+        FlutterEventChannel(name: "pro.onetrace/remote_config", binaryMessenger: registrar.messenger())
+            .setStreamHandler(RemoteConfigStream())
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -26,7 +30,8 @@ public class OneTraceFlutterPlugin: NSObject, FlutterPlugin {
                 maxQueueSize: args["maxQueueSize"] as? Int ?? 1000,
                 trackLifecycle: args["trackLifecycle"] as? Bool ?? true,
                 openPushLinks: args["openPushLinks"] as? Bool ?? true,
-                debug: args["debug"] as? Bool ?? false
+                debug: args["debug"] as? Bool ?? false,
+                remoteConfigMinFetchInterval: TimeInterval(args["remoteConfigMinFetchIntervalSeconds"] as? Int ?? 3600)
             ))
         case "track":
             OneTrace.track(args.string("event"), args.values("properties"))
@@ -47,7 +52,39 @@ public class OneTraceFlutterPlugin: NSObject, FlutterPlugin {
         case "notificationReceived":
             OneTrace.handleNotificationReceived(args["data"] as? [String: Any] ?? [:])
         case "notificationOpened":
-            OneTrace.handleNotificationOpen(args["data"] as? [String: Any] ?? [:])
+            OneTrace.handleNotificationOpen(args["data"] as? [String: Any] ?? [:], actionIdentifier: args["actionId"] as? String)
+        case "handlePush":
+            // Rich push is drawn by the Notification Service Extension on iOS.
+            return result(false)
+        case "remoteConfigGetString":
+            let key = args.string("key")
+            if let fallback = args["default"] as? String {
+                return result(OneTrace.remoteConfig.getString(key, fallback))
+            }
+            return result(OneTrace.remoteConfig.all[key] == nil ? nil : OneTrace.remoteConfig.getString(key, ""))
+        case "remoteConfigGetBool":
+            return result(OneTrace.remoteConfig.getBoolean(args.string("key"), args["default"] as? Bool ?? false))
+        case "remoteConfigGetInt":
+            return result(OneTrace.remoteConfig.getLong(args.string("key"), Int64(args["default"] as? Int ?? 0)))
+        case "remoteConfigGetDouble":
+            return result(OneTrace.remoteConfig.getDouble(args.string("key"), args["default"] as? Double ?? 0))
+        case "remoteConfigGetJson":
+            let fallback = args["default"] as? String
+            guard let value = OneTrace.remoteConfig.getJson(args.string("key")),
+                  JSONSerialization.isValidJSONObject(value),
+                  let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) else {
+                return result(fallback)
+            }
+            return result(String(data: data, encoding: .utf8) ?? fallback)
+        case "remoteConfigFetch":
+            return OneTrace.remoteConfig.fetch { result($0) }
+        case "enableGeofences":
+            return result(OneTraceLocation.enableGeofences().rawValue)
+        case "disableGeofences":
+            OneTraceLocation.disableGeofences()
+        case "requestLocationPermission":
+            OneTraceLocation.requestLocationPermission()
+            return result(true)
         case "pauseInAppMessages":
             OneTrace.pauseInAppMessages(args["paused"] as? Bool ?? false)
         case "fetchInAppMessages":
@@ -100,6 +137,23 @@ private final class FeedUnreadStream: NSObject, FlutterStreamHandler {
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         observation?.cancel()
         observation = OneTrace.observeFeedUnread { events($0) }
+        return nil
+    }
+
+    func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        observation?.cancel()
+        observation = nil
+        return nil
+    }
+}
+
+/// The changed Remote Config keys while Dart listens: the native listener is added on listen and removed on cancel.
+private final class RemoteConfigStream: NSObject, FlutterStreamHandler {
+    private var observation: OneTraceObservation?
+
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        observation?.cancel()
+        observation = OneTrace.remoteConfig.addListener { events(Array($0)) }
         return nil
     }
 

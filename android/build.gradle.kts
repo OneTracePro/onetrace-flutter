@@ -1,7 +1,10 @@
 group = "pro.onetrace.flutter"
 version = "1.2.0"
 
-/** The native OneTrace SDK for Android (JitPack: a release tag or a commit). */
+/**
+ * The native OneTrace SDK for Android. Until it is released, the code of its `stage-105` branch comes from mavenLocal
+ * (`./gradlew publishToMavenLocal` in onetrace-android, see the README); after the release, JitPack serves a tag.
+ */
 val oneTraceAndroid = "1.2.0"
 
 buildscript {
@@ -27,6 +30,11 @@ allprojects {
 // The native SDK is published on JitPack: the app's projects resolve the plugin's dependencies too.
 rootProject.allprojects {
     repositories {
+        // Exclusive: the app's other repositories may come before mavenLocal in the list.
+        exclusiveContent {
+            forRepository { mavenLocal() }
+            filter { includeGroupByRegex("com\\.github\\.OneTracePro.*") }
+        }
         maven("https://jitpack.io") {
             content { includeGroupByRegex("com\\.github\\.OneTracePro.*") }
         }
@@ -66,4 +74,5 @@ kotlin {
 
 dependencies {
     implementation("com.github.OneTracePro.onetrace-android:onetrace:$oneTraceAndroid")
+    implementation("com.github.OneTracePro.onetrace-android:onetrace-location:$oneTraceAndroid")
 }

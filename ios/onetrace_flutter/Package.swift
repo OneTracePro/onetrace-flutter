@@ -11,8 +11,9 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
-        // The native OneTrace SDK for iOS.
-        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", from: "1.2.0"),
+        // The native OneTrace SDK for iOS. Until it is released, the commit of its `stage-105` branch (see the README);
+        // after the release: `from: "1.3.0"`, or a local path `.package(path: "../../../onetrace-ios")`.
+        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", revision: "b75dfff90e4330a68bf76c59fec665a863c825b5"),
     ],
     targets: [
         .target(
@@ -20,6 +21,7 @@ let package = Package(
             dependencies: [
                 .product(name: "FlutterFramework", package: "FlutterFramework"),
                 .product(name: "OneTrace", package: "onetrace-ios"),
+                .product(name: "OneTraceLocation", package: "onetrace-ios"),
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy")

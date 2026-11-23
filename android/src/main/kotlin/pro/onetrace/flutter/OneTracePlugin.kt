@@ -14,19 +14,24 @@ import pro.onetrace.sdk.FeedCard
 import pro.onetrace.sdk.FeedUnreadListener
 import pro.onetrace.sdk.OneTrace
 import pro.onetrace.sdk.OneTraceConfig
+import pro.onetrace.sdk.RemoteConfigListener
+import pro.onetrace.sdk.location.GeofenceStatus
+import pro.onetrace.sdk.location.OneTraceLocation
 
 /**
  * The `pro.onetrace/sdk` channel over the native OneTrace SDK. The SDK starts when Dart calls `OneTrace.init()`, after
  * the Flutter activity was created, so the activity is attached to it explicitly: its launch intent may carry a tapped
  * notification, and in-app messages are shown over it. The `pro.onetrace/feed_unread` event channel carries the unread
- * count of the message feed while Dart listens to it.
+ * count of the message feed and `pro.onetrace/remote_config` the changed Remote Config keys while Dart listens to them.
  */
 class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware, PluginRegistry.NewIntentListener {
     private lateinit var channel: MethodChannel
     private lateinit var feedUnread: EventChannel
+    private lateinit var remoteConfigChanges: EventChannel
     private lateinit var context: Context
     private var activity: Activity? = null
     private val feedUnreadStream = FeedUnreadStream()
+    private val remoteConfigStream = RemoteConfigStream()
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -34,12 +39,16 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
         channel.setMethodCallHandler(this)
         feedUnread = EventChannel(binding.binaryMessenger, "pro.onetrace/feed_unread")
         feedUnread.setStreamHandler(feedUnreadStream)
+        remoteConfigChanges = EventChannel(binding.binaryMessenger, "pro.onetrace/remote_config")
+        remoteConfigChanges.setStreamHandler(remoteConfigStream)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         feedUnread.setStreamHandler(null)
         feedUnreadStream.onCancel(null)
+        remoteConfigChanges.setStreamHandler(null)
+        remoteConfigStream.onCancel(null)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -57,7 +66,20 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
             )
             "notificationPermissionChanged" -> OneTrace.notificationPermissionChanged()
             "notificationReceived" -> OneTrace.notificationReceived(call.strings("data"))
-            "notificationOpened" -> OneTrace.notificationOpened(activity ?: context, call.strings("data"))
+            "notificationOpened" -> OneTrace.notificationOpened(activity ?: context, call.strings("data"), call.argument<String>("actionId"))
+            "handlePush" -> return result.success(OneTrace.handlePushData(context, call.strings("data")))
+            "remoteConfigGetString" -> return result.success(OneTrace.remoteConfig.getString(call.string("key"), call.argument<String>("default")))
+            "remoteConfigGetBool" -> return result.success(OneTrace.remoteConfig.getBoolean(call.string("key"), call.argument<Boolean>("default") == true))
+            "remoteConfigGetInt" -> return result.success(OneTrace.remoteConfig.getLong(call.string("key"), call.argument<Number>("default")?.toLong() ?: 0L))
+            "remoteConfigGetDouble" -> return result.success(OneTrace.remoteConfig.getDouble(call.string("key"), call.argument<Number>("default")?.toDouble() ?: 0.0))
+            "remoteConfigGetJson" -> return result.success(OneTrace.remoteConfig.getJson(call.string("key"), call.argument<String>("default")))
+            "remoteConfigFetch" -> return OneTrace.remoteConfig.fetch { success -> result.success(success) }
+            "enableGeofences" -> return result.success(geofenceStatus(OneTraceLocation.enableGeofences(context)))
+            "disableGeofences" -> OneTraceLocation.disableGeofences(context)
+            "requestLocationPermission" -> {
+                val current = activity ?: return result.error("no_activity", "There is no foreground activity to ask for the permission", null)
+                return result.success(OneTraceLocation.requestLocationPermission(current))
+            }
             "pauseInAppMessages" -> OneTrace.pauseInAppMessages(call.argument<Boolean>("paused") == true)
             "fetchInAppMessages" -> OneTrace.fetchInAppMessages()
             "fetchFeed" -> return OneTrace.fetchFeed { cards, _ -> result.success(cards.map(::feedCard)) }
@@ -89,6 +111,8 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
                 trackLifecycle = call.argument<Boolean>("trackLifecycle") ?: true,
                 openPushLinks = call.argument<Boolean>("openPushLinks") ?: true,
                 debug = call.argument<Boolean>("debug") ?: false,
+                remoteConfigMinFetchIntervalSeconds = call.argument<Number>("remoteConfigMinFetchIntervalSeconds")?.toLong() ?: 3600,
+                richPush = call.argument<Boolean>("richPush") ?: false,
             ),
         )
         activity?.let(OneTrace::attachActivity)
@@ -133,6 +157,30 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
         "expiresAt" to card.expiresAt?.time,
         "opensOnTap" to card.opensOnTap,
     )
+
+    /** The name of the status in the Dart `GeofenceStatus` enum. */
+    private fun geofenceStatus(status: GeofenceStatus): String = when (status) {
+        GeofenceStatus.ENABLED -> "enabled"
+        GeofenceStatus.LOCATION_PERMISSION_MISSING -> "locationPermissionMissing"
+        GeofenceStatus.BACKGROUND_PERMISSION_MISSING -> "backgroundPermissionMissing"
+        GeofenceStatus.PLAY_SERVICES_UNAVAILABLE -> "playServicesUnavailable"
+        GeofenceStatus.NOT_INITIALIZED -> "notInitialized"
+    }
+
+    /** The changed Remote Config keys while Dart listens: the native listener is added on listen and removed on cancel. */
+    private class RemoteConfigStream : EventChannel.StreamHandler {
+        private var listener: RemoteConfigListener? = null
+
+        override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+            onCancel(null)
+            listener = RemoteConfigListener { keys -> events.success(keys.toList()) }.also(OneTrace.remoteConfig::addListener)
+        }
+
+        override fun onCancel(arguments: Any?) {
+            listener?.let(OneTrace.remoteConfig::removeListener)
+            listener = null
+        }
+    }
 
     /** The unread count while Dart listens: the native listener is added on listen and removed on cancel. */
     private class FeedUnreadStream : EventChannel.StreamHandler {
