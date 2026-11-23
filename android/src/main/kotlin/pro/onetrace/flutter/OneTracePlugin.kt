@@ -15,8 +15,6 @@ import pro.onetrace.sdk.FeedUnreadListener
 import pro.onetrace.sdk.OneTrace
 import pro.onetrace.sdk.OneTraceConfig
 import pro.onetrace.sdk.RemoteConfigListener
-import pro.onetrace.sdk.location.GeofenceStatus
-import pro.onetrace.sdk.location.OneTraceLocation
 
 /**
  * The `pro.onetrace/sdk` channel over the native OneTrace SDK. The SDK starts when Dart calls `OneTrace.init()`, after
@@ -74,11 +72,14 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
             "remoteConfigGetDouble" -> return result.success(OneTrace.remoteConfig.getDouble(call.string("key"), call.argument<Number>("default")?.toDouble() ?: 0.0))
             "remoteConfigGetJson" -> return result.success(OneTrace.remoteConfig.getJson(call.string("key"), call.argument<String>("default")))
             "remoteConfigFetch" -> return OneTrace.remoteConfig.fetch { success -> result.success(success) }
-            "enableGeofences" -> return result.success(geofenceStatus(OneTraceLocation.enableGeofences(context)))
-            "disableGeofences" -> OneTraceLocation.disableGeofences(context)
+            "enableGeofences" -> return result.success(if (GeofencingModule.linked) Geofencing.enable(context) else "unavailable")
+            "disableGeofences" -> if (GeofencingModule.linked) Geofencing.disable(context)
             "requestLocationPermission" -> {
+                if (!GeofencingModule.linked) {
+                    return result.success(false)
+                }
                 val current = activity ?: return result.error("no_activity", "There is no foreground activity to ask for the permission", null)
-                return result.success(OneTraceLocation.requestLocationPermission(current))
+                return result.success(Geofencing.requestPermission(current))
             }
             "pauseInAppMessages" -> OneTrace.pauseInAppMessages(call.argument<Boolean>("paused") == true)
             "fetchInAppMessages" -> OneTrace.fetchInAppMessages()
@@ -157,15 +158,6 @@ class OneTracePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
         "expiresAt" to card.expiresAt?.time,
         "opensOnTap" to card.opensOnTap,
     )
-
-    /** The name of the status in the Dart `GeofenceStatus` enum. */
-    private fun geofenceStatus(status: GeofenceStatus): String = when (status) {
-        GeofenceStatus.ENABLED -> "enabled"
-        GeofenceStatus.LOCATION_PERMISSION_MISSING -> "locationPermissionMissing"
-        GeofenceStatus.BACKGROUND_PERMISSION_MISSING -> "backgroundPermissionMissing"
-        GeofenceStatus.PLAY_SERVICES_UNAVAILABLE -> "playServicesUnavailable"
-        GeofenceStatus.NOT_INITIALIZED -> "notInitialized"
-    }
 
     /** The changed Remote Config keys while Dart listens: the native listener is added on listen and removed on cancel. */
     private class RemoteConfigStream : EventChannel.StreamHandler {

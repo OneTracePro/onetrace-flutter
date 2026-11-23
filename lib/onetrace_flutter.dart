@@ -93,7 +93,8 @@ enum GeofenceStatus {
   /// iOS: no «Always» location permission.
   needsAlwaysPermission,
 
-  /// iOS: the device cannot watch regions.
+  /// Geofences are not connected to the app (Android: `onetrace.geofences=true`; iOS: the `OneTraceLocation` product
+  /// and `OneTraceLocation.register()`, see the README), or the iOS device cannot watch regions.
   unavailable,
 
   /// iOS: `init()` was not called yet.
@@ -302,11 +303,12 @@ abstract final class OneTrace {
     return true;
   }
 
-  /// Android: the native SDK draws OneTrace push data (carousel, timer, buttons, snooze); call it from your
-  /// `FirebaseMessagingService` or background handler and set [OneTraceConfig.richPush]. True when the data is
-  /// OneTrace push. Nothing is drawn on iOS.
+  /// Android: the native SDK draws OneTrace push data (carousel, timer, buttons, snooze) and Live Updates, and takes
+  /// the silent check (`cdp_kind: ping`, no token) without showing anything; call it from both
+  /// `FirebaseMessaging.onMessage` (the app is open) and the background handler, and set [OneTraceConfig.richPush].
+  /// True when the data is OneTrace push and is not yours to show. Nothing is drawn on iOS.
   static Future<bool> handlePush(Map<String, Object?> data) async {
-    if (!isOneTraceNotification(data)) {
+    if (!isOneTraceNotification(data) && data['cdp_kind'] is! String) {
       return false;
     }
 

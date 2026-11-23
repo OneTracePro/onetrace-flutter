@@ -24,7 +24,7 @@ dependencies:
 
 The features above (rich push, Remote Config, geofences) are in the `stage-105` branches of the native SDKs, which are not released yet:
 
-- Android: in `onetrace-android` (branch `stage-105`) run `./gradlew :onetrace:publishReleasePublicationToMavenLocal :onetrace-fcm:publishReleasePublicationToMavenLocal :onetrace-location:publishReleasePublicationToMavenLocal`; the plugin resolves `com.github.OneTracePro.onetrace-android:onetrace` and `onetrace-location` from `mavenLocal()` first. The plugin now depends on the `onetrace-location` module (Google Play services location).
+- Android: `android/build.gradle.kts` takes a commit of the `onetrace-android` branch `stage-105` from JitPack (`com.github.OneTracePro.onetrace-android:onetrace:<commit>`; JitPack builds it on the first request, a couple of minutes). For a local working copy run `./gradlew :onetrace:publishReleasePublicationToMavenLocal :onetrace-fcm:publishReleasePublicationToMavenLocal :onetrace-location:publishReleasePublicationToMavenLocal` there and set `onetrace.mavenLocal=true` in the app's `android/gradle.properties` (`onetrace.androidVersion` picks another version or commit).
 - iOS: `ios/onetrace_flutter/Package.swift` pins `onetrace-ios` to a commit of the `stage-105` branch (`revision:`); for local work replace it with `.package(path: "../../../onetrace-ios")`.
 
 After the native SDKs are released these lines switch back to the version.
@@ -109,7 +109,7 @@ In OneTrace add the **Mobile push** integration with your package name and bundl
 
 ### Rich push, buttons and the tapped button (stage 105, unreleased)
 
-Android: the native SDK draws OneTrace push (carousel, timer, buttons, snooze). Set `richPush: true` in `OneTraceConfig` and pass the data of every message to `OneTrace.handlePush(data)` from your background handler (it returns false for other messages); only then the installation reports `rich` and `silent` and the server sends data-only messages. Without the flag the server sends the plain notification, as before.
+Android: the native SDK draws OneTrace push (carousel, timer, buttons, snooze) and Live Updates. Set `richPush: true` in `OneTraceConfig` and pass the data of every message to `OneTrace.handlePush(data)` — from the background handler and from `FirebaseMessaging.onMessage` while the app is open, since data-only messages are not shown by the system then (it returns false for messages that are not OneTrace's, and true for the silent check, which shows nothing). Only then the installation reports `rich` and `silent` and the server sends data-only messages. Without the flag the server sends the plain notification, as before.
 
 ```dart
 @pragma('vm:entry-point')
@@ -117,7 +117,14 @@ Future<void> onBackgroundMessage(RemoteMessage message) => OneTrace.handlePush(m
 
 await OneTrace.init(const OneTraceConfig(writeKey: '…', host: '…', richPush: true));
 FirebaseMessaging.onBackgroundMessage(onBackgroundMessage);
+FirebaseMessaging.onMessage.listen((message) async {
+  if (!await OneTrace.handlePush(message.data)) {
+    showYourOwnNotification(message);   // not OneTrace's
+  }
+});
 ```
+
+On Android the `onMessage` handler replaces the `notificationReceived` call above: `handlePush` reports the delivery itself.
 
 iOS draws rich push in a Notification Service Extension and Notification Content Extension of the native SDK (see its README); `richPush` and `handlePush` do nothing there. A tap on a button is passed with its id: `OneTrace.notificationOpened(message.data, actionId: id)`. The same tap passed twice (the native delegate and your code) is reported once.
 
@@ -136,7 +143,31 @@ OneTrace.remoteConfig.changes.listen((keys) => reload(keys));                   
 
 ## Geofences
 
-Zones of **Apps → Geofences** produce `geofence_entered`, `geofence_dwelled` and `geofence_exited` events. The native SDK watches the nearest zones; the location permission is yours to ask for:
+Zones of **Apps → Geofences** produce `geofence_entered`, `geofence_dwelled` and `geofence_exited` events. The native SDK watches the nearest zones. Geofences are connected separately: an app without them gets no location permissions, no Google Play services Location and needs no location strings; `enableGeofences()` then returns `GeofenceStatus.unavailable`.
+
+**Android.** Add to `android/gradle.properties`:
+
+```properties
+onetrace.geofences=true
+```
+
+The native `onetrace-location` module then brings `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION` and `RECEIVE_BOOT_COMPLETED` into the app manifest. Android starts the app in the background for a zone transition and after a restart of the phone, and Dart does not run then: start the native SDK in your `Application` with the same write key and host as `OneTrace.init` in Dart (which then only attaches to it):
+
+```kotlin
+// android/app/src/main/kotlin/…/MainApplication.kt; android:name=".MainApplication" in <application> of AndroidManifest.xml
+class MainApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        OneTrace.init(this, OneTraceConfig(writeKey = "cdp_wk_…", host = "https://crm.example.com", richPush = true))
+    }
+}
+```
+
+Without it a transition in the background waits until the app opens and is sent then with its time.
+
+**iOS.** In Xcode add the `OneTraceLocation` product of the `onetrace-ios` package (the same version or commit as `ios/onetrace_flutter/Package.swift`) to the Runner target, the `NSLocationWhenInUseUsageDescription` and `NSLocationAlwaysAndWhenInUseUsageDescription` strings to Info.plist, and call `OneTraceLocation.register()` in `application(_:didFinishLaunchingWithOptions:)`: iOS starts the app in the background for a zone event.
+
+The location permission is yours to ask for:
 
 ```dart
 await OneTrace.requestLocationPermission();     // Android: call again after the answer for «Allow all the time»
@@ -144,7 +175,7 @@ final status = await OneTrace.enableGeofences(); // GeofenceStatus.enabled, or t
 await OneTrace.disableGeofences();
 ```
 
-Android needs `ACCESS_FINE_LOCATION` (and `ACCESS_BACKGROUND_LOCATION`) in the app manifest; iOS needs the `NSLocationWhenInUseUsageDescription` and `NSLocationAlwaysAndWhenInUseUsageDescription` strings. Call `enableGeofences()` at app start too: iOS starts the app in the background for a zone event.
+Call `enableGeofences()` at every app start: it registers the zones again (for example after a reinstall).
 
 ## Live Activities (iOS)
 

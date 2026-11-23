@@ -19,6 +19,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned: newer stable releases deprecate package:flutter/material.dart and need AGP 9.1.1+.
+          flutter-version: 3.47.9
       - run: flutter pub get
       - run: dart format --output=none --set-exit-if-changed lib test example/lib
       - run: flutter analyze
@@ -36,6 +38,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned: newer stable releases deprecate package:flutter/material.dart and need AGP 9.1.1+.
+          flutter-version: 3.47.9
       - name: Build the example with the native SDK from JitPack
         working-directory: example
         run: flutter build apk --debug
@@ -52,6 +56,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned: newer stable releases deprecate package:flutter/material.dart and need AGP 9.1.1+.
+          flutter-version: 3.47.9
       - name: Build the example for the simulator with the native SDK as a Swift package
         working-directory: onetrace_flutter/example
         run: flutter build ios --simulator --debug

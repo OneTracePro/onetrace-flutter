@@ -152,6 +152,14 @@ void main() {
     });
   });
 
+  test('hands the silent check without a token to the native SDK, which shows nothing', () async {
+    expect(await OneTrace.handlePush({'cdp_kind': 'ping'}), isTrue);
+    expect(calls.single.method, 'handlePush');
+    expect(calls.single.arguments, {
+      'data': {'cdp_kind': 'ping'},
+    });
+  });
+
   test('Remote Config methods call the native ones with the same arguments', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(OneTrace.channel, (
       call,

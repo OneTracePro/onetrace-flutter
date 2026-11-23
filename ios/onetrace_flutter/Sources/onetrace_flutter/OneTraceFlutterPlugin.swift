@@ -1,6 +1,5 @@
 import Flutter
-import OneTrace
-import OneTraceLocation
+@_spi(OneTraceLocation) import OneTrace
 import UIKit
 
 /// The `pro.onetrace/sdk` channel over the native OneTrace SDK, and the `pro.onetrace/feed_unread` event channel with the
@@ -78,12 +77,14 @@ public class OneTraceFlutterPlugin: NSObject, FlutterPlugin {
             return result(String(data: data, encoding: .utf8) ?? fallback)
         case "remoteConfigFetch":
             return OneTrace.remoteConfig.fetch { result($0) }
+        // Geofences of the `OneTraceLocation` product, when the app links it and calls `OneTraceLocation.register()`.
         case "enableGeofences":
-            return result(OneTraceLocation.enableGeofences().rawValue)
+            return result(OneTrace.geofences?.enable() ?? "unavailable")
         case "disableGeofences":
-            OneTraceLocation.disableGeofences()
+            OneTrace.geofences?.disable()
         case "requestLocationPermission":
-            OneTraceLocation.requestLocationPermission()
+            guard let geofences = OneTrace.geofences else { return result(false) }
+            geofences.requestPermission { _ in }
             return result(true)
         case "pauseInAppMessages":
             OneTrace.pauseInAppMessages(args["paused"] as? Bool ?? false)
