@@ -17,17 +17,8 @@ dependencies:
   onetrace_flutter:
     git:
       url: https://github.com/OneTracePro/onetrace-flutter.git
-      ref: v1.2.0
+      ref: v1.3.0
 ```
-
-## Native code before the release (stage 105)
-
-The features above (rich push, Remote Config, geofences) are in the `stage-105` branches of the native SDKs, which are not released yet:
-
-- Android: `android/build.gradle.kts` takes a commit of the `onetrace-android` branch `stage-105` from JitPack (`com.github.OneTracePro.onetrace-android:onetrace:<commit>`; JitPack builds it on the first request, a couple of minutes). For a local working copy run `./gradlew :onetrace:publishReleasePublicationToMavenLocal :onetrace-fcm:publishReleasePublicationToMavenLocal :onetrace-location:publishReleasePublicationToMavenLocal` there and set `onetrace.mavenLocal=true` in the app's `android/gradle.properties` (`onetrace.androidVersion` picks another version or commit).
-- iOS: `ios/onetrace_flutter/Package.swift` pins `onetrace-ios` to a commit of the `stage-105` branch (`revision:`); for local work replace it with `.package(path: "../../../onetrace-ios")`.
-
-After the native SDKs are released these lines switch back to the version.
 
 ## Quick start
 
@@ -107,7 +98,7 @@ A tap is reported once and its link (`cdp_url`, `myapp://…` or `https://…`) 
 
 In OneTrace add the **Mobile push** integration with your package name and bundle id: the Firebase service account for FCM and, for APNs tokens, the APNs key.
 
-### Rich push, buttons and the tapped button (stage 105, unreleased)
+### Rich push, buttons and the tapped button
 
 Android: the native SDK draws OneTrace push (carousel, timer, buttons, snooze) and Live Updates. Set `richPush: true` in `OneTraceConfig` and pass the data of every message to `OneTrace.handlePush(data)` — from the background handler and from `FirebaseMessaging.onMessage` while the app is open, since data-only messages are not shown by the system then (it returns false for messages that are not OneTrace's, and true for the silent check, which shows nothing). Only then the installation reports `rich` and `silent` and the server sends data-only messages. Without the flag the server sends the plain notification, as before.
 
@@ -165,7 +156,7 @@ class MainApplication : Application() {
 
 Without it a transition in the background waits until the app opens and is sent then with its time.
 
-**iOS.** In Xcode add the `OneTraceLocation` product of the `onetrace-ios` package (the same version or commit as `ios/onetrace_flutter/Package.swift`) to the Runner target, the `NSLocationWhenInUseUsageDescription` and `NSLocationAlwaysAndWhenInUseUsageDescription` strings to Info.plist, and call `OneTraceLocation.register()` in `application(_:didFinishLaunchingWithOptions:)`: iOS starts the app in the background for a zone event.
+**iOS.** In Xcode add the `OneTraceLocation` product of the `onetrace-ios` package (the same version as `ios/onetrace_flutter/Package.swift`, 1.3.0) to the Runner target, the `NSLocationWhenInUseUsageDescription` and `NSLocationAlwaysAndWhenInUseUsageDescription` strings to Info.plist, and call `OneTraceLocation.register()` in `application(_:didFinishLaunchingWithOptions:)`: iOS starts the app in the background for a zone event.
 
 The location permission is yours to ask for:
 

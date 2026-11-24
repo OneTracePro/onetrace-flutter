@@ -11,11 +11,10 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
-        // The native OneTrace SDK for iOS. Until it is released, the commit of its `stage-105` branch (see the README);
-        // after the release: `from: "1.3.0"`, or a local path `.package(path: "../../../onetrace-ios")`. Only the core:
+        // The native OneTrace SDK for iOS (for local work: `.package(path: "../../../onetrace-ios")`). Only the core:
         // an app with geofences links the `OneTraceLocation` product itself (README), an app without them needs no
         // location purpose strings.
-        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", revision: "b975ee14f0823f078d26817ee56673908beee3d8"),
+        .package(url: "https://github.com/OneTracePro/onetrace-ios.git", from: "1.3.0"),
     ],
     targets: [
         .target(

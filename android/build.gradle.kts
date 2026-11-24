@@ -1,17 +1,16 @@
 group = "pro.onetrace.flutter"
-version = "1.2.0"
+version = "1.3.0"
 
 /**
- * The native OneTrace SDK for Android from JitPack. Until it is released, a commit of its `stage-105` branch (JitPack
- * builds any commit); after the release, a tag. Gradle properties of the app (`android/gradle.properties`):
+ * The native OneTrace SDK for Android from JitPack, a release tag. Gradle properties of the app (`android/gradle.properties`):
  * - `onetrace.geofences=true` adds `onetrace-location` (geofences): Google Play services Location and the location
  *   permissions in the app manifest. Without it the app gets neither, and `enableGeofences` returns `unavailable`.
  * - `onetrace.mavenLocal=true` takes the native SDK from the local Maven repository instead (a working copy of
- *   onetrace-android published with `publishReleasePublicationToMavenLocal`, version `onetrace.androidVersion`, 1.2.0
+ *   onetrace-android published with `publishReleasePublicationToMavenLocal`, version `onetrace.androidVersion`, 1.3.0
  *   by default).
  */
 val oneTraceMavenLocal = providers.gradleProperty("onetrace.mavenLocal").orNull == "true"
-val oneTraceAndroid = providers.gradleProperty("onetrace.androidVersion").orNull ?: if (oneTraceMavenLocal) "1.2.0" else "5571a7abd4"
+val oneTraceAndroid = providers.gradleProperty("onetrace.androidVersion").orNull ?: "1.3.0"
 val oneTraceGeofences = providers.gradleProperty("onetrace.geofences").orNull == "true"
 
 buildscript {
